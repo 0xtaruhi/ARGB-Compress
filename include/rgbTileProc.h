@@ -1,19 +1,10 @@
-/* rgbTileProc.cpp
+/* rgbTileProc.h
  *  implementation of TILE COMPRESSION
  */
-#include "rgbTileProc.h"
-#include <assert.h>
-#include <math.h>
-#include <memory.h>
-#include <stdio.h>
+#ifndef _RGBTILEPROC_H_
+#define _RGBTILEPROC_H_
 
-static int g_nTileWidth = 0;
-static int g_nTileHeight = 0;
-
-void tileSetSize(int nTileWidth, int nTileHeight) {
-  g_nTileWidth = nTileWidth;
-  g_nTileHeight = nTileHeight;
-}
+void tileSetSize(int nTileWidth, int nTileHeight);
 
 /* compress ARGB data to tile
  *  param:
@@ -25,12 +16,7 @@ void tileSetSize(int nTileWidth, int nTileHeight) {
  *   -1  -- failed
  */
 int argb2tile(const unsigned char *pClrBlk, unsigned char *pTile,
-              int *pTileSize) {
-  assert(g_nTileWidth > 0 && g_nTileHeight > 0);
-  *pTileSize = g_nTileWidth * g_nTileHeight * 4;
-  memcpy(pTile, pClrBlk, *pTileSize);
-  return 0;
-}
+              int *pTileSize);
 
 /* decompress tile data to ARGB
  *  param:
@@ -42,7 +28,6 @@ int argb2tile(const unsigned char *pClrBlk, unsigned char *pTile,
  *   -1  -- failed
  */
 int tile2argb(const unsigned char *pTile, int nTileSize,
-              unsigned char *pClrBlk) {
-  memcpy(pClrBlk, pTile, nTileSize);
-  return 0;
-}
+              unsigned char *pClrBlk);
+
+#endif

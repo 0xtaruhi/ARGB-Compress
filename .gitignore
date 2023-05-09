@@ -1,3 +1,2 @@
-*.o
-fblcd.out
-
+build
+.vscode
