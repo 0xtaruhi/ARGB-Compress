@@ -7,7 +7,13 @@
 #include <iostream>
 #include <math.h>
 
-#define APP_VERSION "1.0.0"
+#ifdef IN_DEVELOP
+#define DEVELOP_FLAG "[dev]"
+#else
+#define DEVELOP_FLAG
+#endif
+
+#define APP_VERSION "0.0.1" DEVELOP_FLAG
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -309,8 +315,7 @@ int main(int argc, char *argv[]) {
   if (strcmp(argv[1], "--version") == 0) {
     std::cout << USAGE << std::endl;
     // !!! REPLACE THE NAME TO YOUR TEAM'S
-    std::cout << "made by: xxx (for example: Jingjia Electronics Co.,ltd)"
-              << std::endl;
+    std::cout << "made by: Team /bin/cat - Fudan University" << std::endl;
     std::cout << "version: " << APP_VERSION << std::endl;
     return ERROR_PARAM_NOT_ENOUGH;
   } else if (strcmp(argv[1], "-en") == 0) {
