@@ -11,6 +11,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror -fPIC -O0 -g -DIN_DE
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Werror -fPIC -O3")
 
 aux_source_directory(src SRC_LIST)
-add_executable(${EXECUTABLE_NAME} ${SRC_LIST})
+add_executable(${EXECUTABLE_NAME} ${SRC_LIST} 3rdparty/FastLZ/fastlz.c)
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE include)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE 3rdparty/FastLZ)

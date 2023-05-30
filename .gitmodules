@@ -1,0 +1,3 @@
+[submodule "3rdparty/FastLZ"]
+	path = 3rdparty/FastLZ
+	url = https://github.com/ariya/FastLZ.git
