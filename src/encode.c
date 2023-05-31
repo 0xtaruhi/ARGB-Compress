@@ -208,12 +208,6 @@ void OutputInfo_dumpMatch(OutputInfo *self, uint32_t length,
 }
 
 int encode(unsigned char *pTile, int *pTileSize, const unsigned char *pClrBlk) {
-  *pTileSize = g_nTileHeight * g_nTileWidth * 4;
-
-  // int len = fastlz_compress(pClrBlk, *pTileSize, pTile);
-  // *pTileSize = len;
-  // return 0;
-
   const int input_length = g_nTileHeight * g_nTileWidth * 4;
 
   InputInfo *input_info = InputInfo_init(pClrBlk, input_length);
