@@ -1,5 +1,4 @@
 #include "encode.h"
-// #include <cstdint>
 #include <memory.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -70,11 +69,6 @@ void OutputInfo_dumpMatch(OutputInfo *self, uint32_t length, uint32_t distance);
 uint32_t readWord(const uint8_t *p) { return *(uint32_t *)p; }
 
 uint32_t compare(const uint8_t *p1, const uint8_t *p2, const uint8_t *bound) {
-  // uint32_t len = 0;
-  // while (p2 < bound && *p1++ == *p2++) {
-  //   len++;
-  // }
-  // return len;
   const uint8_t *start = p1;
   if (readWord(p1) == readWord(p2)) {
     p1 += 4;
@@ -251,8 +245,8 @@ int encode(unsigned char *pTile, int *pTileSize, const unsigned char *pClrBlk) {
 
     uint32_t length =
         compare(ref + 3, ip + 3, input_info->getEnd(input_info) - 4);
-    output_info->dumpMatch(output_info, length , distance);
-    
+    output_info->dumpMatch(output_info, length, distance);
+
     ip += length;
     seq = readWord(ip);
     uint16_t hash = hash_table->hashFunc(hash_table, seq & 0xffffff);

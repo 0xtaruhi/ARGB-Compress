@@ -36,31 +36,28 @@ int argb2tile(const unsigned char *pClrBlk, unsigned char *pTile,
 
   unsigned char *reorderd_clr_blk = (unsigned char *)malloc(
       g_nTileWidth * g_nTileHeight * 4 * sizeof(unsigned char));
-  // memcpy(reorderd_clr_blk, pClrBlk,
-  //        g_nTileWidth * g_nTileHeight * 4 * sizeof(unsigned char));
   memset(reorderd_clr_blk, 0, g_nTileHeight * g_nTileWidth * 4);
-  unsigned char* p = reorderd_clr_blk;
+  unsigned char *p = reorderd_clr_blk;
 
   for (int i = 0; i < g_nTileHeight * g_nTileWidth * 4; ++i) {
     if (i % 2 == 0) {
       *p |= pClrBlk[i] << 4;
     } else {
-      *p |= pClrBlk[i];
+      *p |= pClrBlk[i] & 15;
       ++p;
     }
   }
 
-  uint32_t* p2 = (uint32_t*)reorderd_clr_blk;
-  for (int i = 1; i < g_nTileHeight; i += 2) {
-    // swap 
-    for (int j = 0; j < g_nTileWidth / 2; ++j) {
-      uint32_t tmp = p2[i * g_nTileWidth + j];
-      p2[i * g_nTileWidth + j] = p2[(i + 1) * g_nTileWidth - j - 1];
-      p2[(i + 1) * g_nTileWidth - j - 1] = tmp;
+  for (int i = 0; i < g_nTileHeight * g_nTileWidth * 4; ++i) {
+    if (i % 2 == 0) {
+      *p |= pClrBlk[i] & 0xf0;
+    } else {
+      *p |= pClrBlk[i] >> 4;
+      ++p;
     }
   }
 
-  int result = encode(pTile, pTileSize,reorderd_clr_blk);
+  int result = encode(pTile, pTileSize, reorderd_clr_blk);
   free(reorderd_clr_blk);
   return result;
 }
@@ -76,5 +73,24 @@ int argb2tile(const unsigned char *pClrBlk, unsigned char *pTile,
  */
 int tile2argb(const unsigned char *pTile, int nTileSize,
               unsigned char *pClrBlk) {
-  return decode(pTile, nTileSize, pClrBlk);
+  g_nTileWidth = 8;
+  g_nTileHeight = 8;
+
+  unsigned char *reorderd_clr_blk = (unsigned char *)malloc(
+      g_nTileWidth * g_nTileHeight * 4 * sizeof(unsigned char));
+  // memset(reorderd_clr_blk, 0, g_nTileWidth * g_nTileHeight * 4);
+  int result = decode(pTile, nTileSize, reorderd_clr_blk);
+  unsigned char *p = reorderd_clr_blk;
+  unsigned int half_size = g_nTileWidth * g_nTileHeight * 4 / 2;
+
+  for (int i = 0; i < g_nTileWidth * g_nTileHeight * 4; ++i) {
+    if (i % 2 == 0) {
+      pClrBlk[i] = (*p >> 4) | (*(p + half_size) & 0xf0);
+    } else {
+      pClrBlk[i] = (*p & 15) | (*(p + half_size) << 4);
+      ++p;
+    }
+  }
+  free(reorderd_clr_blk);
+  return result;
 }
