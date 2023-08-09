@@ -5,3 +5,9 @@ compile_commands.json
 res/*jlcd*
 .cache
 gen
+
+project
+.bloop
+.bsp
+.metals
+target

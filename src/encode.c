@@ -142,7 +142,7 @@ void HashTable_set(HashTable *self, uint32_t key, uint32_t value) {
 
 uint16_t HashTable_normalHashFunc(const HashTable *self, uint32_t key) {
   uint16_t mask = self->size_ - 1;
-  return ((key * 0x9E3779B9) >> (32 - self->key_size_)) & mask;
+  return ((key ^ 0x9E3779B9) >> (32 - self->key_size_)) & mask;
 }
 
 /// OUTPUT INFO

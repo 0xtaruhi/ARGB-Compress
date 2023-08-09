@@ -14,3 +14,7 @@ aux_source_directory(src SRC_LIST)
 add_executable(${EXECUTABLE_NAME} ${SRC_LIST})
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE include)
+
+if (SIM)
+    add_subdirectory(sim)
+endif()
