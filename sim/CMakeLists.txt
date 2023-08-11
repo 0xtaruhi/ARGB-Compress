@@ -6,6 +6,7 @@ src/CatLog.cpp
 src/VirtualMemory.cpp
 src/DecodeUnitDut.cpp
 src/Dut.cpp
+src/SimDecode.cpp
 )
 
 verilate(sim SOURCES ${CMAKE_SOURCE_DIR}/rtl/verilog/DecodeUnit.v TRACE)

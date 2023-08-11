@@ -2,9 +2,12 @@
 
 #include "CatLog.hpp"
 #include <cassert>
+#include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <sstream>
 
 using namespace cat;
 
@@ -125,6 +128,7 @@ auto VirtualMemory::getBlock(addr_t addr) -> VirtualMemoryBlock & {
              .emplace(page_base,
                       std::make_unique<VirtualMemoryBlock>(page_size_, true))
              .first;
+             
     CatLog::logWarning("VirtualMemory::getBlock: block does not exist, "
                        "creating empty block");
   }
@@ -171,12 +175,57 @@ auto VirtualMemory::read(addr_t addr) -> uint32_t {
 }
 
 auto VirtualMemory::write(addr_t addr, uint32_t data, mask_t mask) -> void {
+  if (mask == 0) {
+    return;
+  }
   bool cross_page = (addr & (page_size_ - 1)) > (page_size_ - 4);
+  // check addr
+  addr_t addr_in_page = addr & (page_size_ - 1);
 
   if (!cross_page) {
     [[likely]] getBlock(addr).write(addr, data, mask);
   } else {
     CatLog::logError("VirtualMemory::write: unaligned write across page "
                      "boundaries not supported");
+  }
+}
+
+auto VirtualMemory::readFromFile(const std::string &filename) -> bool {
+  // open file
+  std::ifstream fs(filename);
+  if (!fs.is_open()) {
+    CatLog::logError("VirtualMemory::readFromFile: failed to open file");
+    return false;
+  }
+
+  std::string line;
+
+  addr_t addr = 0;
+  
+  while (std::getline(fs, line)) {    // skip empty lines
+    if (line.empty()) {
+      continue;
+    }
+
+    // parse line
+    std::istringstream iss(line);
+    uint32_t data;
+    iss >> std::hex >> data;
+    
+    // write to memory 
+    this->write(addr, data, 0b1111);
+    addr += 4;
+  }
+
+  // close file 
+    fs.close();
+
+  return true;
+}
+
+auto VirtualMemory::dump() const -> void {
+  for (auto &block : blocks_) {
+    std::cout << "Block at " << std::hex << block.first << std::endl;
+    block.second->dump();
   }
 }

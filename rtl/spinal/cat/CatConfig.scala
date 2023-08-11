@@ -1,7 +1,7 @@
 package cat
 
 object CatConfig {
-  val fifoDepth = 8
+  val fifoDepth = 16
 
   // This indicates the maximum length per tile.
   val maximumTileLength      = 16

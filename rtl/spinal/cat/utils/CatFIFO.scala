@@ -36,7 +36,7 @@ case class CatFIFO(
 
     val invalidateAll = in Bool ()
 
-    val occupancy = out UInt (4 bits)
+    val occupancy = out UInt (log2Up(depth + 1) bits)
   }
 
   val fifoMemory = Vec(Reg(Bits(8 bits)) init (0), depth)
@@ -44,7 +44,7 @@ case class CatFIFO(
   // The popAddress is the address of the next byte to be popped.
   // The pushAddress is similar.
   val popAddress  = Reg(UInt(fifoAddrWidth bits)) init (0)
-  val pushAddress = Reg(UInt(fifoAddrWidth bits)) init (1)
+  val pushAddress = Reg(UInt(fifoAddrWidth bits)) init (0)
 
   val occupancy = Reg(UInt(log2Up(depth + 1) bits)) init (0)
 
@@ -73,12 +73,12 @@ case class CatFIFO(
 
   when(io.invalidateAll) {
     popAddress    := 0
-    pushAddress   := 1
+    pushAddress   := 0
     occupancyNext := 0
   }
 
   // IO Assignment
-  io.push.ready := occupancy < (depth - 4)
+  io.push.ready := occupancy < (depth - 4) && !io.invalidateAll
   io.pop.valid  := occupancy > io.pop.number
 
   for (i <- 0 until 4) {

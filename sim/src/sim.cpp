@@ -1,17 +1,15 @@
 #include <iostream>
+#include <string>
 
 #include "CatLog.hpp"
-#include "DecodeUnitDut.hpp"
-#include "VirtualMemory.hpp"
 
-int main() {
-  cat::VirtualMemory vm(1024);
+auto simDecodeUnit(const std::string& filepath, int decode_length) -> void;
+
+int main(int argc, char** argv) {
   cat::CatLog::setLogLevel(cat::CatLog::LogLevel::Debug);
 
-  auto dut = std::make_unique<cat::DecodeUnitDut>();
+  int decode_length = std::stoi(argv[2]);
 
-  dut->reset();
-  dut->tick(10);
-
+  simDecodeUnit(argv[1], decode_length);
   return 0;
 }

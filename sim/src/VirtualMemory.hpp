@@ -51,6 +51,10 @@ public:
   auto getBlock(addr_t addr) const -> VirtualMemoryBlock const &;
   auto getBlock(addr_t addr) -> VirtualMemoryBlock &;
 
+  auto readFromFile(const std::string &filename) -> bool;
+
+  auto dump() const -> void;
+
 private:
   uint32_t page_size_; // in bytes
   std::map<addr_t, std::unique_ptr<VirtualMemoryBlock>> blocks_;

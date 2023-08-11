@@ -43,10 +43,6 @@ auto CatLog::setLogLevel(LogLevel level) -> void { log_level_ = level; }
 auto CatLog::getLogLevel() -> LogLevel { return log_level_; }
 
 auto CatLog::logImpl(LogLevel level, std::string const &message) -> void {
-  if (level > log_level_) {
-    return;
-  }
-
   switch (level) {
   case LogLevel::Warning:
     std::cerr << "[WARNING] " << message << std::endl;

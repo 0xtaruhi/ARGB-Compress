@@ -34,11 +34,17 @@ case class DecodeUnit() extends Component {
   val consumeUndecodedFifoBytesNumber = UInt(3 bits)
   val consumeUndecodedFifoReady       = Bool()
 
-  val undecodedMemoryReadPtr = Reg(UInt(memoryAddressWidth bits)) init (0)
+  val undecodedMemoryReadPtr     = Reg(UInt(memoryAddressWidth bits)) init (0)
+  val undecodedMemoryReadPtrNext = UInt(memoryAddressWidth bits)
   // FIFO Control logic
   when(undecodedFifo.io.push.fire) {
-    undecodedMemoryReadPtr := undecodedMemoryReadPtr + 4
+    undecodedMemoryReadPtrNext := undecodedMemoryReadPtr + 4
+  } otherwise {
+    undecodedMemoryReadPtrNext := undecodedMemoryReadPtr
   }
+
+  undecodedMemoryReadPtr := undecodedMemoryReadPtrNext
+
   undecodedFifo.io.invalidateAll := False
 
   val writeDecodedMemoryPtr = Reg(UInt(memoryAddressWidth bits)) init (0)
@@ -63,10 +69,10 @@ case class DecodeUnit() extends Component {
   def numberToMask(n: UInt): Bits = {
     val mask = Bits(4 bits)
     switch(n) {
-      is(U(0)) { mask := B"0001" }
-      is(U(1)) { mask := B"0011" }
-      is(U(2)) { mask := B"0111" }
-      is(U(3)) { mask := B"1111" }
+      is(U(1)) { mask := B"0001" }
+      is(U(2)) { mask := B"0011" }
+      is(U(3)) { mask := B"0111" }
+      is(U(4)) { mask := B"1111" }
       default { mask := B"0000" }
     }
     mask
@@ -84,7 +90,7 @@ case class DecodeUnit() extends Component {
 
   val decodeFsm = new StateMachine {
     val undumpedBytes       = Reg(UInt(9 bits)) init (0)
-    val referenceDataOffset = Reg(UInt(13 bits)) init (0)
+    val referenceDataOffset = U(0, 13 bits)
 
     val sCommandSelect: State = new State with EntryPoint {
       def opcode(command: Bits): Bits = command(7 downto 5)
@@ -137,7 +143,7 @@ case class DecodeUnit() extends Component {
         undumpedBytes := undumpedBytes - dumpBytesNumber
 
         val dumpBytes = undecodedFifo.io.pop.data
-        writeToDecodedMemory(dumpBytes.reduceRight(_ ## _), dumpBytesNumber)
+        writeToDecodedMemory(dumpBytes.reverse.reduce(_ ## _), dumpBytesNumber)
 
         when(lastRound) {
           goto(sCommandSelect)
@@ -146,18 +152,15 @@ case class DecodeUnit() extends Component {
     }
 
     val sDumpMatch: State = new State {
-      val copyAddress   = Reg(UInt(memoryAddressWidth bits)) init (0)
-      val doWrite       = Reg(Bool()) init (False)
-      val doWriteNumber = Reg(UInt(3 bits)) init (0)
+      val copyAddress = Reg(UInt(memoryAddressWidth bits)) init (0)
+      val dataSourceAddress = RegNext(decodedMemoryReadAddress) init (0)
 
       onEntry {
-        copyAddress   := (writeDecodedMemoryPtr - referenceDataOffset).resized
-        doWrite       := False
-        doWriteNumber := 0
+        decodedMemoryReadAddress := (writeDecodedMemoryPtr - referenceDataOffset - 1).resized
+        copyAddress := decodedMemoryReadAddress + 4
       }
 
       whenIsActive {
-        val dumpDone = undumpedBytes === 0
         decodedMemoryReadAddress := copyAddress
 
         val fetchBytesNumber =
@@ -165,21 +168,38 @@ case class DecodeUnit() extends Component {
             3 bits
           )
 
-        copyAddress := copyAddress + fetchBytesNumber
-
-        doWriteNumber := fetchBytesNumber
-        doWrite       := !dumpDone
-
-        when(doWrite) {
-          writeToDecodedMemory(
-            io.decodedMemory.read.data,
-            doWriteNumber
-          )
+        def extendReadData(data: Bits, validBytesNumber: UInt): Bits = {
+          val result = Bits(32 bits)
+          switch(validBytesNumber) {
+            is(U(1)) {
+              result := data(7 downto 0) ## data(7 downto 0) ## data(7 downto 0) ## data(7 downto 0)
+            }
+            is (U(2)) {
+              result := data(15 downto 0) ## data(15 downto 0)
+            }
+            is (U(3)) {
+              result := data(7 downto 0) ## data(23 downto 0)
+            }
+            default {
+              result := data
+            }
+          }
+          result
         }
 
-        when(dumpDone) {
+        when(undumpedBytes <= 4) {
           goto(sCommandSelect)
         }
+
+        copyAddress   := copyAddress + fetchBytesNumber
+        undumpedBytes := undumpedBytes - fetchBytesNumber
+
+        val validBytesNumber = writeDecodedMemoryPtr - dataSourceAddress
+
+        writeToDecodedMemory(
+          extendReadData(io.decodedMemory.read.data, validBytesNumber),
+          fetchBytesNumber
+        )
       }
     }
   }
@@ -190,18 +210,19 @@ case class DecodeUnit() extends Component {
   val mainFsm = new StateMachine {
     val sIdle: State = new State with EntryPoint {
       whenIsActive {
-        consumedBytesNumber := 0
-        totalDecodeLength   := io.decodeLength
+        consumedBytesNumber            := 0
+        totalDecodeLength              := io.decodeLength
         when(io.control.fire) {
           goto(sPrefetchFifo)
         }
+        undecodedMemoryReadPtrNext     := 0
+        undecodedFifo.io.invalidateAll := True
       }
     }
 
     val sPrefetchFifo: State = new State {
       whenIsActive {
-        undecodedFifo.io.invalidateAll := True
-        undecodedMemoryReadPtr         := 0
+        goto(sDecoding)
       }
     }
 
@@ -235,7 +256,7 @@ case class DecodeUnit() extends Component {
 
   // IO Assignment
   io.undecodedMemory.read.enable  := True
-  io.undecodedMemory.read.address := undecodedMemoryReadPtr
+  io.undecodedMemory.read.address := undecodedMemoryReadPtrNext
 
   io.decodedLength := decodedLength
 

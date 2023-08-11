@@ -23,6 +23,8 @@ public:
 
   auto resetActive() -> bool { return resetSignal() == resetActiveLevel(); }
 
+  auto getMainTime() const -> vluint64_t { return main_time_; }
+
   auto dumpTrace() -> void { trace_ptr_->dump(main_time_); }
 protected:
   std::unique_ptr<VerilatedVcdC> trace_ptr_;

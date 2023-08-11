@@ -25,6 +25,10 @@ public:
       this->tick();
     }
   }
+
+  auto fallEdge() -> void;
+  auto riseEdge() -> void;
+
   auto reset() -> void;
 
   auto getCyclesNum() -> vluint64_t;
