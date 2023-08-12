@@ -3,6 +3,7 @@ package cat.encode
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
+import cat.utils.MemoryPort
 
 case class HashTable(
     val keyWidth: Int = 32,
@@ -15,32 +16,37 @@ case class HashTable(
       val value = out UInt (valueWidth bits)
     }
 
-    val update = Vec(
-      new Bundle {
-        val enable = in Bool ()
-        val key    = in UInt (keyWidth bits)
-        val value  = in UInt (valueWidth bits)
-      },
-      1
+    val update = new Bundle {
+      val enable = in Bool ()
+      val key    = in UInt (keyWidth bits)
+      val value  = in UInt (valueWidth bits)
+    }
+
+    val hashMemoryPort = master(
+      MemoryPort(
+        readOnly = false,
+        dataWidth = valueWidth,
+        addressWidth = addressWidth
+      )
     )
   }
 
-  private val hashSeed      = U(0x9b832e1).resize(keyWidth bits)
+  private val hashSeed      = U("32'h9e3779b9").resize(keyWidth bits)
   def hash(key: UInt): UInt = {
-    (key ^ hashSeed).resize(addressWidth bits)
+    (key ^ hashSeed)(31 downto (32 - addressWidth)).resize(addressWidth bits)
   }
 
-  val depth      = 1 << addressWidth
-  val hashMemory = Mem(UInt(valueWidth bits), depth)
+  val depth = 1 << addressWidth
 
   val readArea = new Area {
-    io.read.value := hashMemory.readSync(hash(io.read.key))
-    hashMemory.readSync(0)
+    io.read.value                  := io.hashMemoryPort.read.data.asUInt
+    io.hashMemoryPort.read.address := hash(io.read.key)
+    io.hashMemoryPort.read.enable  := True
   }
 
   val updateArea = new Area {
-    for (update <- io.update) {
-      hashMemory.write(hash(update.key), update.value, update.enable)
-    }
+    io.hashMemoryPort.write.data    := io.update.value.asBits
+    io.hashMemoryPort.write.address := hash(io.update.key)
+    io.hashMemoryPort.write.mask    := B"1111"
   }
 }

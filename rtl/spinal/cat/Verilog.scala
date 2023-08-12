@@ -13,8 +13,8 @@ object Verilog {
   def main(args: Array[String]): Unit = {
     // generateConfig.generateVerilog(utils.UnalignedReadWriteMemory())
     // generateConfig.generateSystemVerilog(utils.UnalignedReadOnlyMemory())
-    generateConfig.generateVerilog(decode.DecodeUnit())
+    // generateConfig.generateVerilog(decode.DecodeUnit())
     // generateConfig.generateVerilog(encode.HashTable())
-    // generateConfig.generateVerilog(encode.EncodeUnit())
+    generateConfig.generateVerilog(encode.EncodeUnit())
   }
 }

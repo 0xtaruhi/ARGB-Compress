@@ -34,10 +34,26 @@ case class EncodeUnit() extends Component {
         addressWidth = addressWidth
       )
     )
+
+    val hashMemory = master(
+      MemoryPort(
+        readOnly = false,
+        dataWidth = 32,
+        addressWidth = log2Up(CatConfig.hashTableSize)
+      )
+    )
   }
 
   val hashTable =
-    new HashTable(keyWidth = 32, valueWidth = 32, addressWidth = 12)
+    new HashTable(
+      keyWidth = 32,
+      valueWidth = 32,
+      addressWidth = log2Up(CatConfig.hashTableSize)
+    )
+
+  def hashTableRead(key: UInt) {
+    hashTable.io.read.key := key
+  }
 
   val anchor            = RegInit(U(0, addressWidth bits))
   val ip                = RegInit(U(0, addressWidth bits))
@@ -86,24 +102,23 @@ case class EncodeUnit() extends Component {
     encodedLength               := encodedLength + bytesNumber
   }
 
-  for (hashEntry <- hashTable.io.update) {
-    hashEntry.enable := False
-    hashEntry.key    := 0
-    hashEntry.value  := 0
-  }
-  hashTable.io.read.key := 0
+  hashTable.io.update.enable := False
+  hashTable.io.update.key    := 0
+  hashTable.io.update.value  := 0
+  hashTable.io.read.key      := 0
+  hashTable.io.hashMemoryPort <> io.hashMemory
 
-  def updateHashTable(key: UInt, value: UInt, entryIndex: Int = 0) {
-    hashTable.io.update(entryIndex).enable := True
-    hashTable.io.update(entryIndex).key    := key.resized
-    hashTable.io.update(entryIndex).value  := value.resized
+  def updateHashTable(key: UInt, value: UInt) {
+    hashTable.io.update.enable := True
+    hashTable.io.update.key    := key.resized
+    hashTable.io.update.value  := value.resized
   }
 
   val encodeFsm = new StateMachine {
     def exceedsLimit = ip >= limit
 
     val distance = RegInit(U(0, addressWidth bits))
-    val ref      = RegInit(U(0, 32 bits))
+    val ref      = RegInit(U(0, addressWidth bits))
 
     val sConfig: State = new State with EntryPoint {
       whenIsActive {
@@ -122,19 +137,21 @@ case class EncodeUnit() extends Component {
           dumpPos := anchor
           unencodedMemoryRead(anchor)
 
-          thisPacketDumpNumber := Mux(
+          val thisPacketDumpNumberNext = Mux(
             totalDumpLiteralsNumber > 32,
             U(32),
             totalDumpLiteralsNumber
-          ).resized
+          ).resize(thisPacketDumpNumber.getWidth)
+
+          thisPacketDumpNumber := thisPacketDumpNumberNext
 
           encodedMemoryWrite(
-            data = (thisPacketDumpNumber - 1).asBits.resize(8 bits)
+            data = (thisPacketDumpNumberNext - 1).asBits.resize(8 bits)
           )
           goto(sRunning)
 
           val totalDumpLiteralsNumberNext =
-            totalDumpLiteralsNumber - thisPacketDumpNumber
+            totalDumpLiteralsNumber - thisPacketDumpNumberNext
           totalDumpLiteralsNumber := totalDumpLiteralsNumberNext
         }
       }
@@ -152,7 +169,9 @@ case class EncodeUnit() extends Component {
             bytesNumber = thisCycleDumpNumber
           )
 
-          dumpPos := dumpPos + thisCycleDumpNumber
+          val dumpPosNext = dumpPos + thisCycleDumpNumber
+          dumpPos := dumpPosNext
+          unencodedMemoryRead(dumpPosNext)
 
           val thisPacketDumpNumberNext =
             thisPacketDumpNumber - thisCycleDumpNumber
@@ -217,29 +236,35 @@ case class EncodeUnit() extends Component {
               wordMatchedBytesNumber := 1
             } elsewhen (bytesMatch(2) === False) {
               wordMatchedBytesNumber := 2
-            } otherwise {
+            } elsewhen (bytesMatch(3) === False) {
               wordMatchedBytesNumber := 3
+            } otherwise {
+              wordMatchedBytesNumber := 4
             }
 
-            when(bytesMatch.andR =/= True) {
-              exit()
-            }
+            def wordNotSame = bytesMatch.andR === False
 
             val comparePos1Next = comparePos1 + 4
             val comparePos2Next = comparePos2 + 4
 
             val thisCycleMatchedBytesNumber = UInt(3 bits)
-            when(comparePos2Next >= compareBound) {
-              val exceededBytesNumber =
-                (comparePos2Next - compareBound).resize(3 bits)
-              thisCycleMatchedBytesNumber := Mux(
-                wordMatchedBytesNumber > exceededBytesNumber,
-                exceededBytesNumber,
-                wordMatchedBytesNumber
-              )
+            val inBoundBytesNumber          = Mux(
+              compareBound - comparePos2 < 4,
+              compareBound - comparePos2,
+              U(4)
+            ).resize(3)
+
+            thisCycleMatchedBytesNumber := Min(
+              wordMatchedBytesNumber,
+              inBoundBytesNumber
+            )
+
+            val matchedLengthNext = matchedLength + thisCycleMatchedBytesNumber
+            matchedLength := matchedLengthNext
+
+            when(wordNotSame) {
+              matchedLength := matchedLengthNext + 1
               exit()
-            } otherwise {
-              thisCycleMatchedBytesNumber := wordMatchedBytesNumber
             }
 
             unencodedMemoryRead(comparePos1Next, 0)
@@ -247,9 +272,6 @@ case class EncodeUnit() extends Component {
 
             comparePos1 := comparePos1Next
             comparePos2 := comparePos2Next
-
-            // Update the matched length
-            matchedLength := matchedLength + thisCycleMatchedBytesNumber
           }
         }
       }
@@ -266,37 +288,35 @@ case class EncodeUnit() extends Component {
 
         val sRunning: State = new State {
           whenIsActive {
-            val shouldExit = False
+            val dumpMatchDistanceHigh =
+              dumpMatchDistance(dumpMatchDistance.getWidth - 1 downto 8)
 
             when(matchedLength > CatConfig.maximumMatchLength - 2) {
               // Long Match (exceed the maximum match length)
-              val byte0 = B"111" ## (distance >> 8).resize(5 bits).asBits
+
+              val byte0 = B"111" ## dumpMatchDistanceHigh.resize(5 bits).asBits
               val byte1 = B(CatConfig.maximumMatchLength - 2 - 7 - 2, 8 bits)
-              val byte2 = distance(7 downto 0).asBits
+              val byte2 = dumpMatchDistance(7 downto 0).asBits
               encodedMemoryWrite(data = (byte2 ## byte1 ## byte0))
 
               matchedLength := matchedLength - (CatConfig.maximumMatchLength - 2)
             } elsewhen (matchedLength < 7) {
               // Short Match
               val byte0 =
-                matchedLength(7 downto 5).asBits ## (distance >> 8)
+                matchedLength.resize(3).asBits ## dumpMatchDistanceHigh
                   .resize(5 bits)
                   .asBits
-              val byte1 = distance(7 downto 0).asBits
+              val byte1 = dumpMatchDistance(7 downto 0).asBits
               encodedMemoryWrite(data = (byte1 ## byte0))
 
-              shouldExit := True
+              exit()
             } otherwise {
               // Long Match (within the maximum match length)
-              val byte0 = B"111" ## (distance >> 8).resize(5 bits).asBits
+              val byte0 = B"111" ## dumpMatchDistanceHigh.resize(5 bits).asBits
               val byte1 = B(matchedLength - 7, 8 bits)
-              val byte2 = distance(7 downto 0).asBits
+              val byte2 = dumpMatchDistance(7 downto 0).asBits
               encodedMemoryWrite(data = (byte2 ## byte1 ## byte0))
 
-              shouldExit := True
-            }
-
-            when(shouldExit) {
               exit()
             }
           }
@@ -329,15 +349,24 @@ case class EncodeUnit() extends Component {
 
         val sStage2: State = new State {
           whenIsActive {
-            val refNext = hashTable.io.read.value.resize(ref.getWidth bits)
-            distance := ip - refNext.resize(ip.getWidth bits)
+            val seqNext =
+              (B(0, 8 bits) ## io
+                .unencodedMemory(0)
+                .read
+                .data(23 downto 0)).asUInt
+            seq := seqNext
+            hashTableRead(seqNext)
+            goto(sStage3)
+          }
+        }
+
+        val sStage3: State = new State {
+          whenIsActive {
+            val refNext = hashTable.io.read.value.resize(ref.getWidth)
+            distance := ip - refNext
             ref      := refNext
 
-            val seqNext = io.unencodedMemory(0).read.data.asUInt
-            seq := seqNext
-
-            updateHashTable(key = seqNext, value = ip.resized)
-
+            updateHashTable(key = seq, value = ip.resized)
             unencodedMemoryRead(refNext)
 
             when(exceedsLimit) {
@@ -351,7 +380,8 @@ case class EncodeUnit() extends Component {
 
         val sConditionCheck: State = new State {
           whenIsActive {
-            when(seq(23 downto 0) =/= ref(23 downto 0)) {
+            val refWord = io.unencodedMemory(0).read.data.asUInt
+            when(seq(23 downto 0) =/= refWord(23 downto 0)) {
               goto(sStage1)
             } otherwise {
               exit()
@@ -385,6 +415,7 @@ case class EncodeUnit() extends Component {
             val ipNext = ip - 1
             ip := ipNext
             when(ipNext > anchor) {
+              totalDumpLiteralsNumber := ipNext - anchor
               goto(sDumpLiterals)
             } otherwise {
               goto(sDumpMatch)
@@ -398,7 +429,10 @@ case class EncodeUnit() extends Component {
 
       val sDumpLiterals: State = new StateFsm(fsm = dumpLiteralsFsm) {
         whenCompleted {
-          goto(sStage3)
+          goto(sDumpMatch)
+          comparePos1  := (ref + 3).resized
+          comparePos2  := (ip + 3).resized
+          compareBound := totalEncodeLength - 4
         }
       }
 
@@ -411,14 +445,17 @@ case class EncodeUnit() extends Component {
       val sStage3: State = new State {
         whenIsActive {
           val ipNext = ip + matchedLength
+          ip := ipNext
           unencodedMemoryRead(ipNext)
+          goto(sStage4)
         }
       }
 
       val sStage4: State = new State {
         whenIsActive {
-          seq := io.unencodedMemory(0).read.data.asUInt
-          updateHashTable(key = seq(5 downto 0), value = ip)
+          val seqNext = io.unencodedMemory(0).read.data.asUInt
+          seq := seqNext
+          updateHashTable(key = seqNext(23 downto 0), value = ip)
           ip  := ip + 1
           goto(sStage5)
         }
@@ -426,7 +463,7 @@ case class EncodeUnit() extends Component {
 
       val sStage5: State = new State {
         whenIsActive {
-          updateHashTable(key = seq(13 downto 8), value = ip)
+          updateHashTable(key = seq(31 downto 8), value = ip)
           val ipNext = ip + 1
           ip     := ipNext
           anchor := ipNext
