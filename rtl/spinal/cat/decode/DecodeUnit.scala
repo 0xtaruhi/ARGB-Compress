@@ -107,7 +107,8 @@ case class DecodeUnit() extends Component {
             is(B"000") {
               doConsume(1)
               goto(sLiteralRun)
-              undumpedBytes := (firstByteInFifo(4 downto 0).asUInt + 1).resized
+              undumpedBytes := firstByteInFifo(4 downto 0).asUInt
+                .resize(undumpedBytes.getWidth) + 1
             }
             // Long Match
             is(B"111") {
@@ -152,7 +153,7 @@ case class DecodeUnit() extends Component {
     }
 
     val sDumpMatch: State = new State {
-      val copyAddress = Reg(UInt(memoryAddressWidth bits)) init (0)
+      val copyAddress       = Reg(UInt(memoryAddressWidth bits)) init (0)
       val dataSourceAddress = RegNext(decodedMemoryReadAddress) init (0)
 
       onEntry {
@@ -172,12 +173,14 @@ case class DecodeUnit() extends Component {
           val result = Bits(32 bits)
           switch(validBytesNumber) {
             is(U(1)) {
-              result := data(7 downto 0) ## data(7 downto 0) ## data(7 downto 0) ## data(7 downto 0)
+              result := data(7 downto 0) ## data(7 downto 0) ## data(
+                7 downto 0
+              ) ## data(7 downto 0)
             }
-            is (U(2)) {
+            is(U(2)) {
               result := data(15 downto 0) ## data(15 downto 0)
             }
-            is (U(3)) {
+            is(U(3)) {
               result := data(7 downto 0) ## data(23 downto 0)
             }
             default {
