@@ -18,22 +18,8 @@ public:
   auto resetSignal() -> CData & override { return this->resetn; }
 
   auto resetActiveLevel() -> bool override { return false; }
-
-  auto tick() -> void;
-  auto tick(int n) -> void {
-    for (int i = 0; i < n; i++) {
-      this->tick();
-    }
-  }
-
-  auto fallEdge() -> void;
-  auto riseEdge() -> void;
-
-  auto reset() -> void;
-
-  auto getCyclesNum() -> vluint64_t;
-
-private:
+  auto fallEdge() -> void override;
+  auto riseEdge() -> void override;
 };
 
 } // namespace cat

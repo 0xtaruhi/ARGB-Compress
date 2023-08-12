@@ -48,6 +48,7 @@ auto VirtualMemoryBlock::read(addr_t addr) -> uint32_t const {
   default:
     assert(false && "unreachable");
   }
+  return 0;
 }
 
 auto VirtualMemoryBlock::write(addr_t addr, uint32_t data, mask_t mask)
@@ -172,6 +173,7 @@ auto VirtualMemory::read(addr_t addr) -> uint32_t {
       assert(false && "unreachable");
     }
   }
+  return 0;
 }
 
 auto VirtualMemory::write(addr_t addr, uint32_t data, mask_t mask) -> void {
