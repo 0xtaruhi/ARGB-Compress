@@ -124,7 +124,7 @@ case class DecodeUnit() extends Component {
               doConsume(2)
               goto(sDumpMatch)
 
-              undumpedBytes       := (op.asUInt + 2).resized
+              undumpedBytes := op.resize(undumpedBytes.getWidth).asUInt + 2
               referenceDataOffset := (fifoBytes(0)(4 downto 0) ##
                 fifoBytes(1)).asUInt.resized
             }

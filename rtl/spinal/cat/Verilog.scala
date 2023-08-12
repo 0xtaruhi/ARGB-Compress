@@ -11,10 +11,7 @@ object Verilog {
   ).addStandardMemBlackboxing(blackboxAllWhatsYouCan)
 
   def main(args: Array[String]): Unit = {
-    // generateConfig.generateVerilog(utils.UnalignedReadWriteMemory())
-    // generateConfig.generateSystemVerilog(utils.UnalignedReadOnlyMemory())
-    // generateConfig.generateVerilog(decode.DecodeUnit())
-    // generateConfig.generateVerilog(encode.HashTable())
+    generateConfig.generateVerilog(decode.DecodeUnit())
     generateConfig.generateVerilog(encode.EncodeUnit())
   }
 }
