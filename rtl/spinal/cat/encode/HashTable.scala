@@ -6,9 +6,9 @@ import spinal.lib.fsm._
 import cat.utils.MemoryPort
 
 case class HashTable(
-    val keyWidth: Int = 32,
-    val valueWidth: Int = 32,
-    val addressWidth: Int = 16
+    val keyWidth: Int = 12,
+    val valueWidth: Int = 24,
+    val addressWidth: Int = 12
 ) extends Component {
   val io = new Bundle {
     val read = new Bundle {
@@ -26,14 +26,21 @@ case class HashTable(
       MemoryPort(
         readOnly = false,
         dataWidth = valueWidth,
-        addressWidth = addressWidth
+        addressWidth = addressWidth,
+        useByteMask = false
       )
     )
   }
 
   private val hashSeed      = U("32'h9e3779b9").resize(keyWidth bits)
   def hash(key: UInt): UInt = {
-    (key ^ hashSeed).resize(addressWidth bits)
+    if (key.getWidth == 24 && addressWidth == 12) {
+      (key(21 downto 14) ^ key(9 downto 2)) @@ (key(23 downto 22) ^ key(
+        13 downto 12
+      )) @@ (key(1 downto 0) ^ key(11 downto 10))
+    } else {
+      (key ^ hashSeed).resize(addressWidth bits)
+    }
   }
 
   val depth = 1 << addressWidth
@@ -47,6 +54,6 @@ case class HashTable(
   val updateArea = new Area {
     io.hashMemoryPort.write.data    := io.update.value.asBits
     io.hashMemoryPort.write.address := hash(io.update.key)
-    io.hashMemoryPort.write.mask    := Mux(io.update.enable, B"1111", B"0000")
+    io.hashMemoryPort.write.enable  := io.update.enable
   }
 }

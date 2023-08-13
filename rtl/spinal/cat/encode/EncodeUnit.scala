@@ -38,16 +38,17 @@ case class EncodeUnit() extends Component {
     val hashMemory = master(
       MemoryPort(
         readOnly = false,
-        dataWidth = 32,
-        addressWidth = log2Up(CatConfig.hashTableSize)
+        dataWidth = addressWidth,
+        addressWidth = log2Up(CatConfig.hashTableSize),
+        useByteMask = false
       )
     )
   }
 
   val hashTable =
     new HashTable(
-      keyWidth = 32,
-      valueWidth = 32,
+      keyWidth = 24,
+      valueWidth = addressWidth,
       addressWidth = log2Up(CatConfig.hashTableSize)
     )
 
@@ -339,7 +340,7 @@ case class EncodeUnit() extends Component {
     }
 
     def loopOuterWhileFsm = new StateMachine {
-      val seq = RegInit(U(0, 32 bits))
+      val seq = RegInit(U(0, 24 bits))
 
       def loopInnerWhileFsm = new StateMachine {
         val sStage1: State = new State with EntryPoint {
@@ -351,11 +352,7 @@ case class EncodeUnit() extends Component {
 
         val sStage2: State = new State {
           whenIsActive {
-            val seqNext =
-              (B(0, 8 bits) ## io
-                .unencodedMemory(0)
-                .read
-                .data(23 downto 0)).asUInt
+            val seqNext = io.unencodedMemory(0).read.data(23 downto 0).asUInt
             seq := seqNext
             hashTableRead(seqNext)
             goto(sStage3)
@@ -383,7 +380,7 @@ case class EncodeUnit() extends Component {
         val sConditionCheck: State = new State {
           whenIsActive {
             val refWord = io.unencodedMemory(0).read.data.asUInt
-            when(seq(23 downto 0) =/= refWord(23 downto 0)) {
+            when(seq =/= refWord(23 downto 0)) {
               goto(sStage1)
             } otherwise {
               exit()
@@ -456,8 +453,8 @@ case class EncodeUnit() extends Component {
       val sStage4: State = new State {
         whenIsActive {
           val seqNext = io.unencodedMemory(0).read.data.asUInt
-          seq := seqNext
-          updateHashTable(key = seqNext(23 downto 0), value = ip)
+          seq := seqNext(31 downto 8)
+          updateHashTable(key = seqNext, value = ip)
           ip  := ip + 1
           goto(sStage5)
         }
@@ -465,7 +462,7 @@ case class EncodeUnit() extends Component {
 
       val sStage5: State = new State {
         whenIsActive {
-          updateHashTable(key = seq(31 downto 8), value = ip)
+          updateHashTable(key = seq, value = ip)
           val ipNext = ip + 1
           ip     := ipNext
           anchor := ipNext

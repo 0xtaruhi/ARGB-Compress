@@ -20,7 +20,8 @@ case class UnitControlSignals() extends Bundle with IMasterSlave {
 case class MemoryPort(
     val readOnly: Boolean = false,
     val dataWidth: Int = 32,
-    val addressWidth: Int = 32
+    val addressWidth: Int = 32,
+    val useByteMask: Boolean = true
 ) extends Bundle
     with IMasterSlave {
   val read = new Bundle {
@@ -34,14 +35,20 @@ case class MemoryPort(
       new Bundle {
         val address = UInt(addressWidth bits)
         val data    = Bits(dataWidth bits)
-        val mask    = Bits(dataWidth / 8 bits)
+        val mask    = useByteMask generate Bits(dataWidth / 8 bits)
+        val enable  = !useByteMask generate Bool()
       }
 
   override def asMaster(): Unit = {
     in(read.data)
     out(read.enable, read.address)
     if (!readOnly) {
-      out(write.address, write.data, write.mask)
+      out(write.address, write.data)
+      if (useByteMask) {
+        out(write.mask)
+      } else {
+        out(write.enable)
+      }
     }
   }
 }

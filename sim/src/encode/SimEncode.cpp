@@ -22,6 +22,11 @@ public:
 
   auto run() -> void;
 
+  static auto getInstance() -> EncodeUnitSimulator & {
+    static EncodeUnitSimulator instance;
+    return instance;
+  }
+
   auto setEncodeLength(int encode_length) -> void {
     this->encode_length_ = encode_length;
   }
@@ -55,9 +60,11 @@ auto EncodeUnitSimulator::run() -> void {
 
   dut_->io_encodeLength = this->encode_length_;
 
+  auto startTime = dut_->getMainTime();
   dut_->io_control_start = 1;
 
-  auto startTime = dut_->getMainTime();
+  dut_->tick();
+  dut_->io_control_start = 0;
 
   auto hash_memory_read_addr = dut_->io_hashMemory_read_address;
   auto unencoded_memory_read_addr_0 = dut_->io_unencodedMemory_0_read_address;
@@ -68,7 +75,7 @@ auto EncodeUnitSimulator::run() -> void {
   auto encoded_memory_write_mask = dut_->io_encodedMemory_write_mask;
   auto hash_memory_write_addr = dut_->io_hashMemory_write_address;
   auto hash_memory_write_data = dut_->io_hashMemory_write_data;
-  auto hash_memory_write_mask = dut_->io_hashMemory_write_mask;
+  auto hash_memory_write_enable = dut_->io_hashMemory_write_enable;
 
   while (true) {
     dut_->io_unencodedMemory_0_read_data =
@@ -89,10 +96,11 @@ auto EncodeUnitSimulator::run() -> void {
     encoded_memory_write_mask = dut_->io_encodedMemory_write_mask;
     hash_memory_write_addr = dut_->io_hashMemory_write_address;
     hash_memory_write_data = dut_->io_hashMemory_write_data;
-    hash_memory_write_mask = dut_->io_hashMemory_write_mask;
+    hash_memory_write_enable = dut_->io_hashMemory_write_enable;
 
-    hash_memory_.write(hash_memory_write_addr << 2, hash_memory_write_data,
-                       hash_memory_write_mask);
+    if (hash_memory_write_enable) {
+      hash_memory_.write(hash_memory_write_addr << 2, hash_memory_write_data);
+    }
     encoded_memory_.write(encoded_memory_write_addr, encoded_memory_write_data,
                           encoded_memory_write_mask);
 
@@ -116,7 +124,7 @@ auto EncodeUnitSimulator::run() -> void {
 }
 
 auto simEncodeUnit(const std::string &filepath, int encode_length) {
-  EncodeUnitSimulator sim;
+  auto &sim = EncodeUnitSimulator::getInstance();
   sim.setEncodeLength(encode_length);
   sim.loadUnEncodedMemory(filepath);
   sim.run();

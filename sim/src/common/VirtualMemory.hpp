@@ -24,7 +24,7 @@ public:
 
   // write 4 bytes, unaligned.
   // mask is a 4-bit value, where each bit corresponds to a byte in the word.
-  auto write(addr_t addr, uint32_t data, mask_t mask) -> void;
+  auto write(addr_t addr, uint32_t data, mask_t mask = 0b1111) -> void;
 
   auto dump() const -> void;
 
@@ -46,7 +46,7 @@ public:
   auto read(addr_t addr) -> uint32_t; // read 4 bytes
   
   // write 4 bytes, unaligned.
-  auto write(addr_t addr, uint32_t data, mask_t mask) -> void;
+  auto write(addr_t addr, uint32_t data, mask_t mask = 0b1111) -> void;
 
   auto getBlock(addr_t addr) const -> VirtualMemoryBlock const &;
   auto getBlock(addr_t addr) -> VirtualMemoryBlock &;
