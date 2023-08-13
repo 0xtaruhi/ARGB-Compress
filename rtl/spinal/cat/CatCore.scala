@@ -225,6 +225,8 @@ case class CatCore() extends Component {
         io.unencodedMemory(0).write <> decodeUnit.io.decodedMemory.write
         io.undecodedMemory.read.address := decodeUnit.io.undecodedMemory.read.address
         io.undecodedMemory.read.enable := decodeUnit.io.undecodedMemory.read.enable
+        io.unencodedMemory(0).read.address := decodeUnit.io.decodedMemory.read.address
+        io.unencodedMemory(0).read.enable  := decodeUnit.io.decodedMemory.read.enable
       }
       whenCompleted {
         writeInfo(decodeUnit.io.decodedLength.asBits)

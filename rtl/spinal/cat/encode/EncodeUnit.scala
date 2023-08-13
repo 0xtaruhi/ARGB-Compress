@@ -340,6 +340,7 @@ case class EncodeUnit() extends Component {
       }
     }
 
+    val fixAnchor = False
     def loopOuterWhileFsm = new StateMachine {
       val seq = RegInit(U(0, 24 bits))
 
@@ -459,6 +460,7 @@ case class EncodeUnit() extends Component {
           anchor := ipNext
 
           when(exceedsLimit(ipNext)) {
+            fixAnchor := True
             exit()
           } otherwise {
             goto(sStage1)
@@ -469,13 +471,13 @@ case class EncodeUnit() extends Component {
 
     val sLoopOuterWhile: State = new StateFsm(fsm = loopOuterWhileFsm) {
       whenCompleted {
-        // anchor has not been updated when the loop exits
+        // anchor has not been updated when the loop exits at the condition check
         // The anchorNext is the next position of the anchor which
         // is the currect value should be compared with the totalEncodeLength
-        val anchorNext = ip + 1
-        when(totalEncodeLength > anchorNext) {
+        val fixedAnchor = Mux(fixAnchor, ip + 1, anchor)
+        when(totalEncodeLength > fixedAnchor) {
           goto(sDumpLeft)
-          totalDumpLiteralsNumber := totalEncodeLength - anchorNext
+          totalDumpLiteralsNumber := totalEncodeLength - fixedAnchor
         } otherwise {
           exit()
         }
@@ -492,7 +494,7 @@ case class EncodeUnit() extends Component {
   val mainFsm = new StateMachine {
     val sIdle: State = new State with EntryPoint {
       whenIsActive {
-        when(io.control.fire) {
+        when(io.control.start) {
           goto(sEncoding)
           ip                := 0
           totalEncodeLength := io.encodeLength
