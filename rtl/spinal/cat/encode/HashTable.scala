@@ -33,7 +33,7 @@ case class HashTable(
 
   private val hashSeed      = U("32'h9e3779b9").resize(keyWidth bits)
   def hash(key: UInt): UInt = {
-    (key ^ hashSeed)(31 downto (32 - addressWidth)).resize(addressWidth bits)
+    (key ^ hashSeed).resize(addressWidth bits)
   }
 
   val depth = 1 << addressWidth
@@ -47,6 +47,6 @@ case class HashTable(
   val updateArea = new Area {
     io.hashMemoryPort.write.data    := io.update.value.asBits
     io.hashMemoryPort.write.address := hash(io.update.key)
-    io.hashMemoryPort.write.mask    := B"1111"
+    io.hashMemoryPort.write.mask    := Mux(io.update.enable, B"1111", B"0000")
   }
 }

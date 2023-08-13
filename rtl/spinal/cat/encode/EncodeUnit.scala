@@ -204,6 +204,7 @@ case class EncodeUnit() extends Component {
 
             unencodedMemoryRead(comparePos1, 0)
             unencodedMemoryRead(comparePos2, 1)
+            matchedLength := 0
           }
         }
 
@@ -248,11 +249,8 @@ case class EncodeUnit() extends Component {
             val comparePos2Next = comparePos2 + 4
 
             val thisCycleMatchedBytesNumber = UInt(3 bits)
-            val inBoundBytesNumber          = Mux(
-              compareBound - comparePos2 < 4,
-              compareBound - comparePos2,
-              U(4)
-            ).resize(3)
+            val inBoundBytesNumber          =
+              Min(U(4), compareBound - comparePos2).resize(3)
 
             thisCycleMatchedBytesNumber := Min(
               wordMatchedBytesNumber,
@@ -272,6 +270,10 @@ case class EncodeUnit() extends Component {
 
             comparePos1 := comparePos1Next
             comparePos2 := comparePos2Next
+
+            when(comparePos2Next >= compareBound) {
+              exit()
+            }
           }
         }
       }
@@ -474,8 +476,12 @@ case class EncodeUnit() extends Component {
 
     val sLoopOuterWhile: State = new StateFsm(fsm = loopOuterWhileFsm) {
       whenCompleted {
-        goto(sDumpLeft)
-        totalDumpLiteralsNumber := totalEncodeLength - anchor
+        when(totalEncodeLength > anchor) {
+          goto(sDumpLeft)
+          totalDumpLiteralsNumber := totalEncodeLength - anchor
+        } otherwise {
+          exit()
+        }
       }
     }
 

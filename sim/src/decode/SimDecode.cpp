@@ -94,7 +94,7 @@ auto simDecodeUnit(const std::string &filepath, int decode_length) -> void {
   sim.loadUndecodedMemory(filepath);
   sim.run();
   // uncomment to dump memory
-  // sim.dumpMemory();
+  sim.dumpMemory();
 }
 
 int main(int argc, char** argv) {
