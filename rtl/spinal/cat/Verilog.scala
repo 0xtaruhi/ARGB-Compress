@@ -13,5 +13,6 @@ object Verilog {
   def main(args: Array[String]): Unit = {
     generateConfig.generateVerilog(decode.DecodeUnit())
     generateConfig.generateVerilog(encode.EncodeUnit())
+    generateConfig.generateVerilog(CatCore())
   }
 }

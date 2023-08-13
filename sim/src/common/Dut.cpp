@@ -26,7 +26,7 @@ auto Dut::getCyclesNum() const -> vluint64_t {
 
 auto Dut::reset() -> void {
   this->resetSignal() = resetActiveLevel();
-  this->tick(10);
+  this->tick(1);
   this->resetSignal() = !resetActiveLevel();
-  this->tick(10);
+  this->tick(2);
 }

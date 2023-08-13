@@ -3,7 +3,9 @@ package cat.utils
 import spinal.core._
 import spinal.lib._
 
-case class UnitControlSignals() extends Bundle with IMasterSlave {
+case class UnitControlSignals(
+  val resetActiveLevel: Polarity = HIGH,
+) extends Bundle with IMasterSlave {
   val start = Bool()
   val done  = Bool()
   val busy  = Bool()
@@ -12,6 +14,14 @@ case class UnitControlSignals() extends Bundle with IMasterSlave {
   override def asMaster(): Unit = {
     out(start, reset)
     in(done, busy)
+  }
+
+  def setResetActive() = {
+    reset := { if (resetActiveLevel == HIGH) True else False }
+  }
+
+  def setResetInactive() = {
+    reset := { if (resetActiveLevel == HIGH) False else True }
   }
 
   def fire = start && !busy

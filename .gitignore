@@ -11,3 +11,4 @@ project
 .bsp
 .metals
 target
+.DS_Store
