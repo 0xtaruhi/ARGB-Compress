@@ -116,7 +116,7 @@ case class EncodeUnit() extends Component {
   }
 
   val encodeFsm = new StateMachine {
-    def exceedsLimit = ip >= limit
+    def exceedsLimit                = ip >= limit
     def exceedsLimit(address: UInt) = address >= limit
 
     val distance = RegInit(U(0, addressWidth bits))
@@ -130,13 +130,12 @@ case class EncodeUnit() extends Component {
     }
 
     val totalDumpLiteralsNumber = RegInit(U(0, addressWidth bits))
+    val dumpPos                 = RegInit(U(0, addressWidth bits))
     def dumpLiteralsFsm         = new StateMachine {
-      val dumpPos              = RegInit(U(0, addressWidth bits))
       val thisPacketDumpNumber = RegInit(U(0, 6 bits))
 
       val sConfig: State = new State with EntryPoint {
         whenIsActive {
-          dumpPos := anchor
           unencodedMemoryRead(anchor)
 
           val thisPacketDumpNumberNext = Mux(
@@ -340,7 +339,7 @@ case class EncodeUnit() extends Component {
       }
     }
 
-    val fixAnchor = False
+    val fixAnchor         = False
     def loopOuterWhileFsm = new StateMachine {
       val seq = RegInit(U(0, 24 bits))
 
@@ -407,6 +406,7 @@ case class EncodeUnit() extends Component {
             ip := ipNext
             when(ipNext > anchor) {
               totalDumpLiteralsNumber := ipNext - anchor
+              dumpPos                 := anchor
               goto(sDumpLiterals)
             } otherwise {
               goto(sDumpMatch)
@@ -478,6 +478,7 @@ case class EncodeUnit() extends Component {
         when(totalEncodeLength > fixedAnchor) {
           goto(sDumpLeft)
           totalDumpLiteralsNumber := totalEncodeLength - fixedAnchor
+          dumpPos                 := fixedAnchor
         } otherwise {
           exit()
         }
