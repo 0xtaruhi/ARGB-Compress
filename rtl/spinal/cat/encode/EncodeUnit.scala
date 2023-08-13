@@ -117,6 +117,7 @@ case class EncodeUnit() extends Component {
 
   val encodeFsm = new StateMachine {
     def exceedsLimit = ip >= limit
+    def exceedsLimit(address: UInt) = address >= limit
 
     val distance = RegInit(U(0, addressWidth bits))
     val ref      = RegInit(U(0, addressWidth bits))
@@ -389,16 +390,6 @@ case class EncodeUnit() extends Component {
         }
       }
 
-      val sConditionCheck: State = new State {
-        whenIsActive {
-          when(exceedsLimit) {
-            exit()
-          } otherwise {
-            goto(sStage1)
-          }
-        }
-      }
-
       val sStage1: State = new StateFsm(fsm = loopInnerWhileFsm)
         with EntryPoint {
         whenCompleted {
@@ -456,26 +447,35 @@ case class EncodeUnit() extends Component {
           seq := seqNext(31 downto 8)
           updateHashTable(key = seqNext, value = ip)
           ip  := ip + 1
-          goto(sStage5)
+          goto(sConditionCheck)
         }
       }
 
-      val sStage5: State = new State {
+      val sConditionCheck: State = new State {
         whenIsActive {
           updateHashTable(key = seq, value = ip)
           val ipNext = ip + 1
           ip     := ipNext
           anchor := ipNext
-          goto(sConditionCheck)
+
+          when(exceedsLimit(ipNext)) {
+            exit()
+          } otherwise {
+            goto(sStage1)
+          }
         }
       }
     }
 
     val sLoopOuterWhile: State = new StateFsm(fsm = loopOuterWhileFsm) {
       whenCompleted {
-        when(totalEncodeLength > anchor) {
+        // anchor has not been updated when the loop exits
+        // The anchorNext is the next position of the anchor which
+        // is the currect value should be compared with the totalEncodeLength
+        val anchorNext = ip + 1
+        when(totalEncodeLength > anchorNext) {
           goto(sDumpLeft)
-          totalDumpLiteralsNumber := totalEncodeLength - anchor
+          totalDumpLiteralsNumber := totalEncodeLength - anchorNext
         } otherwise {
           exit()
         }
