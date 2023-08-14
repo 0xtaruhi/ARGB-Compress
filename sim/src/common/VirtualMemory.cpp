@@ -8,6 +8,7 @@
 #include <ios>
 #include <iostream>
 #include <sstream>
+#include <stdint.h>
 
 using namespace cat;
 
@@ -101,7 +102,32 @@ auto VirtualMemoryBlock::dump() const -> void {
   std::cout << std::endl;
 }
 
+auto VirtualMemoryBlock::loadFromBuffer(addr_t addr, const uint8_t *data,
+                                        uint32_t size) -> void {
+  if (addr + size > page_size_) {
+    CatLog::logError("VirtualMemoryBlock::loadFromBuffer: buffer overflow");
+    return;
+  }
+
+  for (int i = 0; i < size / 4; ++i) {
+    write(addr + 4 * i, *(uint32_t *)(data + 4 * i));
+  }
+
+  uint32_t last_word = 0;
+  for (int i = 0; i < size % 4; ++i) {
+    last_word |= data[size - 1 - i] << (i * 8);
+  }
+  write(addr + size - size % 4, last_word);
+}
+
 VirtualMemory::VirtualMemory(uint32_t page_size) { page_size_ = page_size; }
+
+VirtualMemory::VirtualMemory(const VirtualMemory &other) {
+  page_size_ = other.page_size_;
+  for (auto &block : other.blocks_) {
+    blocks_.emplace(block.first, std::make_unique<VirtualMemoryBlock>(*block.second));
+  }
+}
 
 auto VirtualMemory::newBlock(addr_t addr) -> VirtualMemoryBlock & {
   assert(getPageBase(addr) == addr && "address must be page-aligned");
@@ -129,7 +155,7 @@ auto VirtualMemory::getBlock(addr_t addr) -> VirtualMemoryBlock & {
              .emplace(page_base,
                       std::make_unique<VirtualMemoryBlock>(page_size_, true))
              .first;
-             
+
     CatLog::logWarning("VirtualMemory::getBlock: block does not exist, "
                        "creating empty block");
   }
@@ -203,8 +229,8 @@ auto VirtualMemory::readFromFile(const std::string &filename) -> bool {
   std::string line;
 
   addr_t addr = 0;
-  
-  while (std::getline(fs, line)) {    // skip empty lines
+
+  while (std::getline(fs, line)) { // skip empty lines
     if (line.empty()) {
       continue;
     }
@@ -213,14 +239,14 @@ auto VirtualMemory::readFromFile(const std::string &filename) -> bool {
     std::istringstream iss(line);
     uint32_t data;
     iss >> std::hex >> data;
-    
-    // write to memory 
+
+    // write to memory
     this->write(addr, data, 0b1111);
     addr += 4;
   }
 
-  // close file 
-    fs.close();
+  // close file
+  fs.close();
 
   return true;
 }
@@ -230,4 +256,39 @@ auto VirtualMemory::dump() const -> void {
     std::cout << "Block at " << std::hex << block.first << std::endl;
     block.second->dump();
   }
+}
+
+auto cat::operator==(const cat::VirtualMemoryBlock &lhs,
+                     const cat::VirtualMemoryBlock &rhs) -> bool {
+  if (lhs.page_size_ != rhs.page_size_) {
+    return false;
+  }
+
+  for (int i = 0; i < lhs.data_.size(); ++i) {
+    if (lhs.data_[i] != rhs.data_[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+auto cat::operator==(const cat::VirtualMemory &lhs,
+                     const cat::VirtualMemory &rhs) -> bool {
+  if (lhs.page_size_ != rhs.page_size_) {
+    return false;
+  }
+
+  for (auto &block : lhs.blocks_) {
+    auto it = rhs.blocks_.find(block.first);
+    if (it == rhs.blocks_.end()) {
+      return false;
+    }
+
+    if (*block.second != *it->second) {
+      return false;
+    }
+  }
+
+  return true;
 }

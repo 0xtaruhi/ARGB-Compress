@@ -8,8 +8,9 @@
 using namespace cat;
 
 IntegratedSimulator::IntegratedSimulator()
-    : dut_(std::make_unique<CatCoreDut>()), unencoded_memory_(512),
-      undecoded_memory_(512), hash_memory_(16384) {
+    : dut_(std::make_unique<CatCoreDut>()), original_memory_(2048),
+      unencoded_memory_(2048), undecoded_memory_(2048), hash_memory_(16384) {
+  original_memory_.newBlock(0x0);
   unencoded_memory_.newBlock(0x0);
   undecoded_memory_.newBlock(0x0);
   hash_memory_.newBlock(0x0);
@@ -34,6 +35,14 @@ auto IntegratedSimulator::run() -> void {
   CatLog::logInfo("Encode cycles: " + std::to_string(encode_cycles));
   CatLog::logInfo("Decode cycles: " + std::to_string(decode_cycles));
   CatLog::logInfo("Total cycles: " + std::to_string(total_cycles));
+
+  if (checkEqual()) {
+    CatLog::logInfo("(^_^) Original memory and unencoded memory are equal.");
+  } else {
+    CatLog::logError(
+        "(v_v) Original memory and unencoded memory are **not** equal.");
+    dumpMemory();
+  }
 }
 
 auto IntegratedSimulator::runEncode() -> void {
@@ -46,7 +55,7 @@ auto IntegratedSimulator::runEncode() -> void {
   dut_->setControlCode(CatCoreDut::ControlCode::Encode);
   dut_->setInfo(encode_length_);
   waitUntilDone();
-  
+
   encode_end_time_ = dut_->getMainTime();
   encoded_length_ = dut_->getInfo();
   CatLog::logInfo("Encoded length: " + std::to_string(encoded_length_));
@@ -70,12 +79,12 @@ auto IntegratedSimulator::runDecode() -> void {
 }
 
 auto IntegratedSimulator::dumpMemory() -> void const {
-  cat::CatLog::logInfo("Unencoded memory:");
-  unencoded_memory_.dump();
-  cat::CatLog::logInfo("Undecoded memory:");
+  cat::CatLog::logInfo("Original memory:");
+  original_memory_.dump();
+  cat::CatLog::logInfo("encode memory:");
   undecoded_memory_.dump();
-  cat::CatLog::logInfo("Hash memory:");
-  hash_memory_.dump();
+  cat::CatLog::logInfo("decoded memory:");
+  unencoded_memory_.dump();
 }
 
 auto IntegratedSimulator::waitUntilDone() -> void {
@@ -127,4 +136,16 @@ auto IntegratedSimulator::tick() -> void {
       undecoded_memory_.read(undecoded_memory_read_addr_);
   dut_->io_hashMemory_read_data =
       hash_memory_.read(hash_memory_read_addr_ << 2);
+}
+
+auto IntegratedSimulator::checkEqual() -> bool const {
+  if (encode_length_ != decoded_length_) {
+    CatLog::logError("Original length and decoded length mismatch.");
+    return false;
+  }
+  if (original_memory_ != unencoded_memory_) {
+    CatLog::logError("Original memory and unencoded memory mismatch.");
+    return false;
+  }
+  return true;
 }

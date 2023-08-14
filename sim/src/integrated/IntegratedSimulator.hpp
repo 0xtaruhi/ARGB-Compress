@@ -24,7 +24,8 @@ public:
   auto runDecode() -> void;
 
   auto loadUnencodedMemory(const std::string &filepath) -> bool {
-    return unencoded_memory_.readFromFile(filepath);
+    return original_memory_.readFromFile(filepath) &&
+           unencoded_memory_.readFromFile(filepath);
   }
 
   auto getEncodeLength() -> int const { return encode_length_; }
@@ -36,12 +37,15 @@ public:
 
   auto tick() -> void;
 
+  auto checkEqual() -> bool const;
+
 private:
   auto waitUntilDone() -> void;
   auto returnToIdle() -> void;
 
 private:
   std::unique_ptr<CatCoreDut> dut_;
+  cat::VirtualMemory original_memory_;
   cat::VirtualMemory unencoded_memory_;
   cat::VirtualMemory undecoded_memory_;
   cat::VirtualMemory hash_memory_;
