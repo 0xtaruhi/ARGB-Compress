@@ -136,7 +136,7 @@ case class EncodeUnit() extends Component {
 
       val sConfig: State = new State with EntryPoint {
         whenIsActive {
-          unencodedMemoryRead(anchor)
+          unencodedMemoryRead(dumpPos)
 
           val thisPacketDumpNumberNext = Mux(
             totalDumpLiteralsNumber > 32,
@@ -280,11 +280,14 @@ case class EncodeUnit() extends Component {
       }
 
       def dumpMatchFsm = new StateMachine {
-        val dumpMatchDistance = RegInit(U(0, addressWidth bits))
+        val dumpMatchDistance   = RegInit(U(0, addressWidth bits))
+        val undumpedMatchLength =
+          RegInit(U(0, addressWidth bits))
 
         val sConfig: State = new State with EntryPoint {
           whenIsActive {
-            dumpMatchDistance := distance - 1
+            dumpMatchDistance   := distance - 1
+            undumpedMatchLength := matchedLength
             goto(sRunning)
           }
         }
@@ -294,7 +297,7 @@ case class EncodeUnit() extends Component {
             val dumpMatchDistanceHigh =
               dumpMatchDistance(dumpMatchDistance.getWidth - 1 downto 8)
 
-            when(matchedLength > CatConfig.maximumMatchLength - 2) {
+            when(undumpedMatchLength > CatConfig.maximumMatchLength - 2) {
               // Long Match (exceed the maximum match length)
 
               val byte0 = B"111" ## dumpMatchDistanceHigh.resize(5 bits).asBits
@@ -302,11 +305,11 @@ case class EncodeUnit() extends Component {
               val byte2 = dumpMatchDistance(7 downto 0).asBits
               encodedMemoryWrite(data = (byte2 ## byte1 ## byte0))
 
-              matchedLength := matchedLength - (CatConfig.maximumMatchLength - 2)
-            } elsewhen (matchedLength < 7) {
+              undumpedMatchLength := undumpedMatchLength - (CatConfig.maximumMatchLength - 2)
+            } elsewhen (undumpedMatchLength < 7) {
               // Short Match
               val byte0 =
-                matchedLength.resize(3).asBits ## dumpMatchDistanceHigh
+                undumpedMatchLength.resize(3).asBits ## dumpMatchDistanceHigh
                   .resize(5 bits)
                   .asBits
               val byte1 = dumpMatchDistance(7 downto 0).asBits
@@ -316,7 +319,7 @@ case class EncodeUnit() extends Component {
             } otherwise {
               // Long Match (within the maximum match length)
               val byte0 = B"111" ## dumpMatchDistanceHigh.resize(5 bits).asBits
-              val byte1 = B(matchedLength - 7, 8 bits)
+              val byte1 = B(undumpedMatchLength - 7, 8 bits)
               val byte2 = dumpMatchDistance(7 downto 0).asBits
               encodedMemoryWrite(data = (byte2 ## byte1 ## byte0))
 
