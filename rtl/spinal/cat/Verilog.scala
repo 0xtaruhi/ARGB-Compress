@@ -11,8 +11,9 @@ object Verilog {
   ).addStandardMemBlackboxing(blackboxAllWhatsYouCan)
 
   def main(args: Array[String]): Unit = {
-    generateConfig.generateVerilog(decode.DecodeUnit())
-    generateConfig.generateVerilog(encode.EncodeUnit())
+    // generateConfig.generateVerilog(decode.DecodeUnit())
+    // generateConfig.generateVerilog(encode.EncodeUnit())
     generateConfig.generateVerilog(CatCore())
+    generateConfig.generateVerilog(CatTop())
   }
 }

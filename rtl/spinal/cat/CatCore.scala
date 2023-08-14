@@ -7,22 +7,16 @@ import cat.utils.MemoryPort
 
 case class CatCore() extends Component {
 
-  class DataRegisterInterface extends Bundle with IMasterSlave {
-    val readData    = in Bits (32 bits)
-    val writeData   = out Bits (32 bits)
-    val writeEnable = out Bool ()
-
-    def asMaster(): Unit = {
-      in(readData)
-      out(writeData, writeEnable)
-    }
-  }
-
   val addressWidth = log2Up(CatConfig.maximumTileSizeInBytes + 1)
 
   val io = new Bundle {
     // PS/PL Data Register Interface
-    val data = Vec(master(new DataRegisterInterface), 8)
+    val dataReg = new Bundle {
+      val readData    = in Bits (32 bits)
+      val writeData   = out Bits (32 bits)
+      val writeEnable = out Bool ()
+      val regIndex    = out UInt (3 bits)
+    }
 
     // PS/PL CS Register Interface
     val status  = out Bits (8 bits)
@@ -70,11 +64,12 @@ case class CatCore() extends Component {
 
   def defaultAssign(): Unit = {
     io.status := Status.Busy
-    for (dataReg <- io.data) {
-      dataReg.writeData   := 0
-      dataReg.writeEnable := False
-    }
-    io.info.writeData := 0
+
+    io.dataReg.writeData   := 0
+    io.dataReg.writeEnable := False
+    io.dataReg.regIndex    := 0
+
+    io.info.writeData   := 0
     io.info.writeEnable := False
 
     def defaultMemoryAssign(port: MemoryPort, useByteMask: Boolean = true) {
@@ -121,8 +116,8 @@ case class CatCore() extends Component {
   }
 
   def writeDataReg(data: Bits, index: UInt) {
-    io.data(index).writeData   := data.resized
-    io.data(index).writeEnable := True
+    io.dataReg.regIndex  := index
+    io.dataReg.writeData := data
   }
 
   def setStatus(status: Bits) = {
@@ -225,8 +220,12 @@ case class CatCore() extends Component {
         io.unencodedMemory(0).write <> decodeUnit.io.decodedMemory.write
         io.undecodedMemory.read.address := decodeUnit.io.undecodedMemory.read.address
         io.undecodedMemory.read.enable := decodeUnit.io.undecodedMemory.read.enable
-        io.unencodedMemory(0).read.address := decodeUnit.io.decodedMemory.read.address
-        io.unencodedMemory(0).read.enable  := decodeUnit.io.decodedMemory.read.enable
+        io.unencodedMemory(0)
+          .read
+          .address := decodeUnit.io.decodedMemory.read.address
+        io.unencodedMemory(0)
+          .read
+          .enable  := decodeUnit.io.decodedMemory.read.enable
       }
       whenCompleted {
         writeInfo(decodeUnit.io.decodedLength.asBits)
@@ -347,7 +346,7 @@ case class CatCore() extends Component {
           }
           writeDataReg(readResp(), dataRegIndex)
           readReq(address)
-          address := address + 4
+          address      := address + 4
           dataRegIndex := dataRegIndex + 1
         }
       }
@@ -372,8 +371,10 @@ case class CatCore() extends Component {
           when(dataRegIndex === 7) {
             exit()
           }
-          writeReq(address, io.data(dataRegIndex).readData)
-          dataRegIndex := dataRegIndex + 1
+          io.dataReg.regIndex := dataRegIndex
+          writeReq(address, io.dataReg.readData)
+          address             := address + 4
+          dataRegIndex        := dataRegIndex + 1
         }
       }
     }

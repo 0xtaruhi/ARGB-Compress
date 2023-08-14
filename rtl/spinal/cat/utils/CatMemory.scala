@@ -3,6 +3,45 @@ package cat.utils
 import spinal.core._
 import spinal.lib._
 
+case class AlignedReadWriteMemory(
+    val width: Int = 32,
+    val depth: Int = 1024,
+    val useByteMask: Boolean = false
+) extends Component {
+  val io = new Bundle {
+    val port = slave(
+      MemoryPort(
+        readOnly = false,
+        dataWidth = width,
+        addressWidth = log2Up(depth),
+        useByteMask = useByteMask
+      )
+    )
+  }
+
+  val mem = Mem(Bits(width bits), depth)
+
+  if (useByteMask) {
+    mem.write(
+      address = io.port.write.address,
+      data = io.port.write.data,
+      enable = True,
+      mask = io.port.write.mask
+    )
+  } else {
+    mem.write(
+      address = io.port.write.address,
+      data = io.port.write.data,
+      enable = io.port.write.enable
+    )
+  }
+
+  val addressWidth = log2Up(depth)
+  io.port.read.data := mem.readSync(address =
+    io.port.read.address.takeHigh(addressWidth).asUInt
+  )
+}
+
 /*
  * UnalignedReadWriteMemory
  *

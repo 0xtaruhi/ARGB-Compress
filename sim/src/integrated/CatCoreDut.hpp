@@ -49,6 +49,8 @@ public:
 
   auto setControlCode(ControlCode code) -> void;
 
+  auto getControlCode() -> ControlCode const;
+
   auto getStatus() -> StatusCode const;
 
   auto isIdle() -> bool const { return getStatus() == StatusCode::Idle; }
@@ -58,18 +60,6 @@ public:
 private:
   std::array<uint32_t, 8> data_reg_;
   uint32_t cs_reg_;
-
-  struct RegsBundle {
-    IData &read_data;
-    IData &write_data;
-    CData &write_enable;
-
-    RegsBundle(IData &read_data, IData &write_data, CData &write_enable)
-        : read_data(read_data), write_data(write_data),
-          write_enable(write_enable) {}
-  };
-
-  std::array<RegsBundle, 8> data_reg_bundles_;
 };
 
 } // namespace cat
