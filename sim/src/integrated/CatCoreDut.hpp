@@ -1,7 +1,6 @@
 #ifndef CAT_CORE_DUT_HPP
 #define CAT_CORE_DUT_HPP
 
-#include <_types/_uint8_t.h>
 #include <array>
 
 #include "Dut.hpp"
