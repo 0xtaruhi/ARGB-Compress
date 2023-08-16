@@ -365,7 +365,9 @@ case class EncodeUnit() extends Component {
 
         val sStage3: State = new State {
           whenIsActive {
-            val refNext = hashTable.io.read.value.resize(ref.getWidth)
+            val hashReadData = hashTable.io.read.value.resize(ref.getWidth)
+            val validRefNext = hashReadData < ip
+            val refNext = Mux(validRefNext, hashReadData, U(0)).resize(ref.getWidth)
             distance := ip - refNext
             ref      := refNext
 
@@ -503,6 +505,7 @@ case class EncodeUnit() extends Component {
           ip                := 0
           totalEncodeLength := io.encodeLength
           limit             := io.encodeLength - 13
+          anchor            := 0
         }
       }
     }
