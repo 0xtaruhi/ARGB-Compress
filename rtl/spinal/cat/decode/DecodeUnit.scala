@@ -30,23 +30,6 @@ case class DecodeUnit() extends Component {
     )
   }
 
-  val undecodedFifo                   = CatFIFO(depth = cat.CatConfig.fifoDepth)
-  val consumeUndecodedFifoBytesNumber = UInt(3 bits)
-  val consumeUndecodedFifoReady       = Bool()
-
-  val undecodedMemoryReadPtr     = Reg(UInt(memoryAddressWidth bits)) init (0)
-  val undecodedMemoryReadPtrNext = UInt(memoryAddressWidth bits)
-  // FIFO Control logic
-  when(undecodedFifo.io.push.fire) {
-    undecodedMemoryReadPtrNext := undecodedMemoryReadPtr + 4
-  } otherwise {
-    undecodedMemoryReadPtrNext := undecodedMemoryReadPtr
-  }
-
-  undecodedMemoryReadPtr := undecodedMemoryReadPtrNext
-
-  undecodedFifo.io.invalidateAll := False
-
   val writeDecodedMemoryPtr = Reg(UInt(memoryAddressWidth bits)) init (0)
 
   val consumedBytesNumber =
@@ -57,13 +40,14 @@ case class DecodeUnit() extends Component {
   val decodedMemoryReadAddress = UInt(memoryAddressWidth bits)
   decodedMemoryReadAddress := 0
 
-  consumeUndecodedFifoReady       := False
-  consumeUndecodedFifoBytesNumber := 0
+  val thisCycleConsumeBytesNumber = U(0, 3 bits)
+  val consumedBytesNumberNext     =
+    consumedBytesNumber + thisCycleConsumeBytesNumber
+  consumedBytesNumber := consumedBytesNumberNext
 
   def doConsume(n: UInt): Unit = {
-    consumeUndecodedFifoReady       := True
-    consumeUndecodedFifoBytesNumber := n.resized
-    consumedBytesNumber             := consumedBytesNumber + n
+    // consumedBytesNumberNext := consumedBytesNumber + n
+    thisCycleConsumeBytesNumber := n
   }
 
   def numberToMask(n: UInt): Bits = {
@@ -94,8 +78,8 @@ case class DecodeUnit() extends Component {
 
     val sCommandSelect: State = new State with EntryPoint {
       def opcode(command: Bits): Bits = command(7 downto 5)
-      def fifoBytes                   = undecodedFifo.io.pop.data
-      def firstByteInFifo             = fifoBytes(0)
+      def fifoBytes       = io.undecodedMemory.read.data.subdivideIn(8 bits)
+      def firstByteInFifo = fifoBytes(0)
 
       whenIsActive {
         when(consumedBytesNumber === totalDecodeLength) {
@@ -143,8 +127,7 @@ case class DecodeUnit() extends Component {
         doConsume(dumpBytesNumber)
         undumpedBytes := undumpedBytes - dumpBytesNumber
 
-        val dumpBytes = undecodedFifo.io.pop.data
-        writeToDecodedMemory(dumpBytes.reverse.reduce(_ ## _), dumpBytesNumber)
+        writeToDecodedMemory(io.undecodedMemory.read.data, dumpBytesNumber)
 
         when(lastRound) {
           goto(sCommandSelect)
@@ -213,19 +196,11 @@ case class DecodeUnit() extends Component {
   val mainFsm = new StateMachine {
     val sIdle: State = new State with EntryPoint {
       whenIsActive {
-        consumedBytesNumber            := 0
-        totalDecodeLength              := io.decodeLength
+        consumedBytesNumber := 0
+        totalDecodeLength   := io.decodeLength
         when(io.control.fire) {
-          goto(sPrefetchFifo)
+          goto(sDecoding)
         }
-        undecodedMemoryReadPtrNext     := 0
-        undecodedFifo.io.invalidateAll := True
-      }
-    }
-
-    val sPrefetchFifo: State = new State {
-      whenIsActive {
-        goto(sDecoding)
       }
     }
 
@@ -245,21 +220,9 @@ case class DecodeUnit() extends Component {
     }
   }
 
-  // Child Component Assignment
-  undecodedFifo.io.pop.number := consumeUndecodedFifoBytesNumber
-  undecodedFifo.io.pop.ready  := consumeUndecodedFifoReady
-
-  undecodedFifo.io.push.data  := Vec(
-    io.undecodedMemory.read.data(7 downto 0),
-    io.undecodedMemory.read.data(15 downto 8),
-    io.undecodedMemory.read.data(23 downto 16),
-    io.undecodedMemory.read.data(31 downto 24)
-  )
-  undecodedFifo.io.push.valid := True
-
   // IO Assignment
   io.undecodedMemory.read.enable  := True
-  io.undecodedMemory.read.address := undecodedMemoryReadPtrNext
+  io.undecodedMemory.read.address := consumedBytesNumberNext
 
   io.decodedLength := decodedLength
 
@@ -268,7 +231,6 @@ case class DecodeUnit() extends Component {
 
   io.decodedMemory.write.address := writeDecodedMemoryPtr
 
-  io.control.busy := mainFsm.isActive(mainFsm.sDecoding) ||
-    mainFsm.isActive(mainFsm.sPrefetchFifo)
+  io.control.busy := mainFsm.isActive(mainFsm.sDecoding)
   io.control.done := mainFsm.isActive(mainFsm.sDone)
 }

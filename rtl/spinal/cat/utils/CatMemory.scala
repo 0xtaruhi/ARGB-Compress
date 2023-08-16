@@ -89,12 +89,12 @@ case class UnalignedReadWriteMemory(
 
     // Concatenate bank0Data and bank1Data to form the read data
     val concatenatedData = Mux(
-      headByteInBank0,
+      RegNext(headByteInBank0),
       bank1Data ## bank0Data,
       bank0Data ## bank1Data
     )
 
-    io.port.read.data := (concatenatedData >> (offset * 8)).resized
+    io.port.read.data := (concatenatedData >> (RegNext(offset) * 8)).resized
   }
 
   val writeArea = !readOnly generate new Area {
