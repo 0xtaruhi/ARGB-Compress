@@ -3,6 +3,7 @@
 
 #include "CatCoreDut.hpp"
 #include "VirtualMemory.hpp"
+#include <cstdint>
 #include <memory>
 
 namespace cat {
@@ -16,6 +17,9 @@ public:
     static IntegratedSimulator instance;
     return instance;
   }
+
+  using addr_t = VirtualMemory::addr_t;
+  using mask_t = VirtualMemory::mask_t;
 
   auto run() -> void;
   auto dumpMemory() -> void const;
@@ -35,9 +39,50 @@ public:
     this->encode_length_ = encode_length;
   }
 
+  auto setEncodedLength(int encoded_length) -> void {
+    this->encoded_length_ = encoded_length;
+  }
+
+  auto writeUndecodedMemory(addr_t addr, uint32_t data, mask_t mask = 0b1111)
+      -> void {
+    undecoded_memory_.write(addr, data, mask);
+  }
+
+  auto readUndecodedMemory(addr_t addr) -> uint32_t {
+    return undecoded_memory_.read(addr);
+  }
+
+  auto readHashMemory(addr_t addr) -> uint32_t {
+    return hash_memory_.read(addr);
+  }
+
+  auto writeUnencodedMemory(addr_t addr, uint32_t data, mask_t mask = 0b1111)
+      -> void {
+    unencoded_memory_.write(addr, data, mask);
+  }
+
+  auto readUnencodedMemory(addr_t addr) -> uint32_t {
+    return unencoded_memory_.read(addr);
+  }
+
+  auto writeHashMemory(addr_t addr, uint32_t data, mask_t mask = 0b1111)
+      -> void {
+    hash_memory_.write(addr, data, mask);
+  }
+
   auto tick() -> void;
 
   auto checkEqual() -> bool const;
+
+  auto reset() -> void;
+
+  auto getDecodeCyclesNum() -> uint64_t const {
+    return (decode_end_time_ - decode_start_time_) / dut_->kTimeStep;
+  }
+
+  auto getEncodeCyclesNum() -> uint64_t const {
+    return (encode_end_time_ - encode_start_time_) / dut_->kTimeStep;
+  }
 
 private:
   auto waitUntilDone() -> void;

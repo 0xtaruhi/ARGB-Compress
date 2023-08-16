@@ -9,10 +9,10 @@
 namespace cat {
 
 class VirtualMemoryBlock {
+public:
   using addr_t = uint32_t;
   using mask_t = uint8_t;
 
-public:
   VirtualMemoryBlock(uint32_t page_size);
 
   VirtualMemoryBlock(uint32_t page_size, bool do_initialize);
@@ -45,10 +45,10 @@ private:
 };
 
 class VirtualMemory {
+public:
   using addr_t = uint32_t;
   using mask_t = uint8_t;
 
-public:
   VirtualMemory(uint32_t page_size);
 
   VirtualMemory(const VirtualMemory &other);

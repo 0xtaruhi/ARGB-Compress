@@ -12,9 +12,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O3")
 
 aux_source_directory(src SRC_LIST)
 add_executable(${EXECUTABLE_NAME} ${SRC_LIST})
-
 target_include_directories(${EXECUTABLE_NAME} PRIVATE include)
 
-if (SIM)
-    add_subdirectory(sim)
-endif()
+add_subdirectory(sim)
+
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE sim_core_lib)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE sim/src/integrated)

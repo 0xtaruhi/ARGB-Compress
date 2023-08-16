@@ -16,11 +16,15 @@ IntegratedSimulator::IntegratedSimulator()
   hash_memory_.newBlock(0x0);
 }
 
-auto IntegratedSimulator::run() -> void {
+auto IntegratedSimulator::reset() -> void {
   start_time_ = dut_->getMainTime();
   dut_->setControlCode(CatCoreDut::ControlCode::Idle);
   dut_->setInfo(0x0);
   dut_->reset();
+}
+
+auto IntegratedSimulator::run() -> void {
+  reset();
   runEncode();
   runDecode();
   end_time_ = dut_->getMainTime();
@@ -58,7 +62,7 @@ auto IntegratedSimulator::runEncode() -> void {
 
   encode_end_time_ = dut_->getMainTime();
   encoded_length_ = dut_->getInfo();
-  CatLog::logInfo("Encoded length: " + std::to_string(encoded_length_));
+  CatLog::logDebug("Encoded length: " + std::to_string(encoded_length_));
   returnToIdle();
 }
 
@@ -73,7 +77,7 @@ auto IntegratedSimulator::runDecode() -> void {
   dut_->setInfo(encoded_length_);
   waitUntilDone();
   decoded_length_ = dut_->getInfo();
-  CatLog::logInfo("Decoded length: " + std::to_string(decoded_length_));
+  CatLog::logDebug("Decoded length: " + std::to_string(decoded_length_));
   returnToIdle();
   decode_end_time_ = dut_->getMainTime();
 }
@@ -85,14 +89,16 @@ auto IntegratedSimulator::dumpMemory() -> void const {
   undecoded_memory_.dump();
   cat::CatLog::logInfo("decoded memory:");
   unencoded_memory_.dump();
+  cat::CatLog::logInfo("hash memory:");
+  hash_memory_.dump();
 }
 
 auto IntegratedSimulator::waitUntilDone() -> void {
-  CatLog::logInfo("Waiting until done...");
+  CatLog::logDebug("Waiting until done...");
   while (!dut_->isDone()) {
     tick();
   }
-  CatLog::logInfo("Done.");
+  CatLog::logDebug("Done.");
 }
 
 auto IntegratedSimulator::returnToIdle() -> void {
@@ -105,7 +111,7 @@ auto IntegratedSimulator::returnToIdle() -> void {
   while (!dut_->isIdle()) {
     tick();
   }
-  CatLog::logInfo("Returned to idle.");
+  CatLog::logDebug("Returned to idle.");
   dut_->setControlCode(CatCoreDut::ControlCode::Idle);
 }
 

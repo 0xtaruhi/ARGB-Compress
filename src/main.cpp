@@ -7,6 +7,8 @@
 #include <iostream>
 #include <math.h>
 
+#include "statistics.h"
+
 #ifdef IN_DEVELOP
 #define DEVELOP_FLAG "[dev]"
 #else
@@ -19,6 +21,8 @@
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+extern uint64_t cycles;
 
 typedef struct _TileCompressionInfo {
   int tilePosition;
@@ -97,6 +101,10 @@ int compressARGB(char const *inFileName, char const *outFileName) {
             << (float)posInCompressionBuffer /
                    (float)(width * height * BYTES_PER_PIXEL) * 100
             << "%" << std::endl;
+
+  auto &statistics = Statistics::getInstance();
+  statistics.setEncode(true);
+  statistics.dumpInfos(std::cout);
 
   // save compressed data to JLCD file
   std::ofstream ofs;
@@ -215,6 +223,16 @@ int decompressARGB(char const *compressedFileName, char const *outFileName) {
   // save decompressed image to output file
   stbi_write_bmp(outFileName, imgWidth, imgHeight, STBI_rgb_alpha,
                  reinterpret_cast<char const *>(pDecompressedARGB));
+
+  // std::cout << "Cycles: " << cycles << std::endl;
+  // std::cout << "Average: "
+  //           << static_cast<double>(cycles) /
+  //                  (imgWidth * imgHeight / (tileHeight * tileWidth))
+  //           << std::endl;
+
+  auto &statistics = Statistics::getInstance();
+  statistics.setDecode();
+  statistics.dumpInfos(std::cout);
 
   delete[] pDecompressedARGB;
   return ERROR_OK;

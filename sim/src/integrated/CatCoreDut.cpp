@@ -12,7 +12,7 @@ CatCoreDut::CatCoreDut() : VCatCore(), Dut() {
 auto CatCoreDut::fallEdge() -> void {
   this->clockSignal() = 0;
   this->eval();
-  trace_ptr_->dump(main_time_ + 1);
+  // trace_ptr_->dump(main_time_ + 1);
   regsSync();
 }
 
@@ -20,7 +20,7 @@ auto CatCoreDut::riseEdge() -> void {
   this->clockSignal() = 1;
   this->eval();
   main_time_ += kTimeStep;
-  trace_ptr_->dump(main_time_);
+  // trace_ptr_->dump(main_time_);
 }
 
 auto CatCoreDut::regsSync() -> void {
